@@ -1,0 +1,63 @@
+#Import needed libraries
+from requests_oauthlib import OAuth1Session
+import time
+import json
+import pandas as pd
+
+# Keys (found on your TradeMe account page)
+consumerKey = 'yourConsumerKeyHereAsAString'
+consumerSecret = 'yourConsumerSecretHereAsAString'
+
+# Easy way to get these here: https://developer.trademe.co.nz/api-overview/authentication/
+oAuthToken = 'yourTokenHereAsAString'
+oAuthSecret = 'yourSecretHereAsAString'
+
+# Use oAuth to authenticate ourselves with our keys and tokens
+tradeMe = OAuth1Session(consumerKey,consumerSecret,oAuthToken,oAuthSecret)
+
+# Tradme uses HTTP for get requests, meaning you ask for specific data by putting in a long URL
+searchCars = 'https://api.trademe.co.nz/v1/Search/Motors/Used.json?body_style=NotSpecified&condition=All&listed_as=All&listing_type=All&page=1&photo_size=Thumbnail&rows=500&shipping_method=All&sort_order=Default&transmission=NotSpecified HTTP/1.1'
+
+# Get the search page
+returnedPageAll = tradeMe.get(searchCars)
+
+# Parse the data
+dataRawAll = returnedPageAll.content
+parsedDataAll = json.loads(dataRawAll)
+
+# Total number of listings
+totalCount = parsedDataAll['TotalCount']
+# TradeMe limits to 500 listings per request 
+totalRequests = int(totalCount/500)
+
+# For all the requests it takes to get all the data
+for i in range(0,totalRequests+1):
+    pageNum = str(i)
+    # Set up search for each page
+    searchAll ='https://api.trademe.co.nz/v1/Search/Motors/Used.json?body_style=NotSpecified&condition=All&listed_as=All&listing_type=All&page=' + pageNum + '&photo_size=Thumbnail&rows=500&shipping_method=All&sort_order=Default&transmission=NotSpecified HTTP/1.1'
+    returnedPageAll = tradeMe.get(searchCars)
+    dataRawAll = returnedPageAll.content
+    parsedDataAll = json.loads(dataRawAll)
+
+    # Get the Listings
+    eachListingAll = parsedDataAll['List']
+
+# Convert to Pandas
+    pandaAll = pd.DataFrame.from_dict(eachListingAll)
+
+# Save data
+    if i == 0: # If first search
+        pandaAll.to_pickle('dataCars.pkl')
+    else: # Append existing data
+# Load from storage
+        pandaAllStorage = pd.read_pickle('dataCars.pkl')
+    
+# Append storaged with new data
+        pandaAllStorage = pandaAllStorage.append(pandaAll,ignore_index=True)
+
+# Save (will overwrite old stored data)
+    pandaAllStorage.to_pickle('dataCars.pkl')
+    time.sleep(0.5)
+    print(i)
+
+print('done')
